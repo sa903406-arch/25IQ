@@ -1240,52 +1240,112 @@ function renderDrawSelection(){
 window.toggleDraw=(n)=>{const i=selectedForDraw.indexOf(n);if(i>-1)selectedForDraw.splice(i,1);else selectedForDraw.push(n);renderDrawSelection();};
 function pk(p1,p2){return[p1,p2].sort().join('-');}
 
-window.runSmartDraw=async()=>{
-  if(selectedForDraw.length<2)return alert('اختر لاعبين على الأقل!');
-  let ob=document.getElementById('confirmDrawBtn');if(ob)ob.remove();
-  const btn=document.getElementById('drawBtn');btn.innerText='جاري التحليل...';btn.disabled=true;
-  const pastSnap=await getDocs(collection(db,'past_matchups'));
-  const past=new Set(pastSnap.docs.map(d=>d.data().pair));
-  let best=null,minC=Infinity;
-  for(let a=0;a<500;a++){
-    let sh=[...selectedForDraw].sort(()=>Math.random()-.5),c=0,pairs=[];
-    for(let i=0;i<sh.length;i+=2){
-      const p1=sh[i],p2=sh[i+1];
-      if(p2){if(past.has(pk(p1,p2)))c++;pairs.push([p1,p2]);}else pairs.push([p1,null]);
+window.runSmartDraw = async () => {
+  if (selectedForDraw.length < 2) return alert('اختر لاعبين على الأقل!');
+  let ob = document.getElementById('confirmDrawBtn'); if (ob) ob.remove();
+  const btn = document.getElementById('drawBtn'); btn.innerText = 'جاري التحليل...'; btn.disabled = true;
+
+  // جلب السجلات مع التاريخ
+  const pastSnap = await getDocs(collection(db, 'past_matchups'));
+  const past = new Set();
+  const lastMeetMap = {}; // pk -> آخر تاريخ
+
+  pastSnap.docs.forEach(d => {
+    const data = d.data();
+    past.add(data.pair);
+    if (data.timestamp) {
+      const ts = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+      if (!lastMeetMap[data.pair] || ts > lastMeetMap[data.pair]) {
+        lastMeetMap[data.pair] = ts;
+      }
     }
-    if(c===0){best=pairs;minC=0;break;}
-    if(c<minC){minC=c;best=pairs;}
+  });
+
+  // جمع كل التوزيعات المثالية
+  let perfectResults = [];
+  let best = null, minC = Infinity;
+
+  for (let a = 0; a < 500; a++) {
+    let sh = [...selectedForDraw].sort(() => Math.random() - .5), c = 0, pairs = [];
+    for (let i = 0; i < sh.length; i += 2) {
+      const p1 = sh[i], p2 = sh[i + 1];
+      if (p2) { if (past.has(pk(p1, p2))) c++; pairs.push([p1, p2]); }
+      else pairs.push([p1, null]);
+    }
+    if (c === 0) perfectResults.push(pairs);
+    if (c < minC) { minC = c; best = pairs; }
   }
-  currentDrawResult=best;
-  let r=document.getElementById('drawResults');r.innerHTML='';
-  r.innerHTML+=minC>0
-    ?`<div style="background:rgba(255,77,109,.08);color:#ff4d6d;border:1px solid rgba(255,77,109,.2);padding:10px;border-radius:12px;text-align:center;margin-bottom:10px;font-size:.8rem;">⚠️ توجد مواجهات متكررة</div>`
-    :`<div style="background:rgba(0,214,143,.08);color:#00d68f;border:1px solid rgba(0,214,143,.2);padding:10px;border-radius:12px;text-align:center;margin-bottom:10px;font-size:.8rem;">✨ توزيعة مثالية لأول مرة</div>`;
-  best.forEach(pair=>{
-    const p1=pair[0],p2=pair[1];
-    r.innerHTML+=`<div class="cvh" style="margin-bottom:8px;">
-      <div style="text-align:center;"><img src="${playersData[p1]||''}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.1);">
-      <div style="font-size:.7rem;margin-top:4px;color:var(--text);">${p1}</div></div>
-      <div style="font-weight:900;color:var(--muted);font-size:.85rem;">${p2?'مع':'☕'}</div>
-      <div style="text-align:center;">${p2?`<img src="${playersData[p2]||''}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.1);">
-      <div style="font-size:.7rem;margin-top:4px;color:var(--text);">${p2}</div>`:''}</div>
+
+  // إذا في توزيعات مثالية، اختار واحدة عشوائية منها
+  if (perfectResults.length > 0) {
+    best = perfectResults[Math.floor(Math.random() * perfectResults.length)];
+    minC = 0;
+  }
+
+  currentDrawResult = best;
+  let r = document.getElementById('drawResults'); r.innerHTML = '';
+
+  r.innerHTML += minC > 0
+    ? `<div style="background:rgba(255,77,109,.08);color:#ff4d6d;border:1px solid rgba(255,77,109,.2);padding:10px;border-radius:12px;text-align:center;margin-bottom:10px;font-size:.8rem;">⚠️ توجد مواجهات متكررة</div>`
+    : `<div style="background:rgba(0,214,143,.08);color:#00d68f;border:1px solid rgba(0,214,143,.2);padding:10px;border-radius:12px;text-align:center;margin-bottom:10px;font-size:.8rem;">✨ توزيعة مثالية لأول مرة</div>`;
+
+  best.forEach(pair => {
+    const p1 = pair[0], p2 = pair[1];
+    const pairKey = p2 ? pk(p1, p2) : null;
+    const lastDate = pairKey && lastMeetMap[pairKey];
+
+    // تنسيق آخر لقاء
+    let lastMeetHTML = '';
+    if (p2) {
+      if (lastDate) {
+        const formatted = lastDate.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' });
+        lastMeetHTML = `<div style="text-align:center;margin-top:6px;font-size:.65rem;color:var(--muted);">🕓 آخر لقاء: ${formatted}</div>`;
+      } else {
+        lastMeetHTML = `<div style="text-align:center;margin-top:6px;font-size:.65rem;color:#00d68f;">🆕 لم يلتقيا من قبل</div>`;
+      }
+    }
+
+    r.innerHTML += `<div class="cvh" style="margin-bottom:8px;flex-direction:column;gap:4px;">
+      <div style="display:flex;align-items:center;justify-content:space-around;width:100%;">
+        <div style="text-align:center;">
+          <img src="${playersData[p1] || ''}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.1);">
+          <div style="font-size:.7rem;margin-top:4px;color:var(--text);">${p1}</div>
+        </div>
+        <div style="font-weight:900;color:var(--muted);font-size:.85rem;">${p2 ? 'مع' : '☕'}</div>
+        <div style="text-align:center;">${p2 ? `
+          <img src="${playersData[p2] || ''}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.1);">
+          <div style="font-size:.7rem;margin-top:4px;color:var(--text);">${p2}</div>` : ''}
+        </div>
+      </div>
+      ${lastMeetHTML}
     </div>`;
   });
-  btn.innerText='إعادة الخلط 🔄';btn.disabled=false;
-  const cb=document.createElement('button');cb.id='confirmDrawBtn';cb.className='btn btn-s';cb.style.marginTop='12px';
-  cb.onclick=confirmDraw;cb.innerText=minC===0?'اعتماد القرعة ✅':'اعتماد (تكرار موجود) ⚠️';
+
+  btn.innerText = 'إعادة الخلط 🔄'; btn.disabled = false;
+  const cb = document.createElement('button'); cb.id = 'confirmDrawBtn'; cb.className = 'btn btn-s'; cb.style.marginTop = '12px';
+  cb.onclick = confirmDraw; cb.innerText = minC === 0 ? 'اعتماد القرعة ✅' : 'اعتماد (تكرار موجود) ⚠️';
   r.after(cb);
 };
-window.confirmDraw=async()=>{
-  if(!currentDrawResult?.length)return;
-  if(!confirm('اعتماد الفرق وحفظها؟'))return;
-  const btn=document.getElementById('confirmDrawBtn');btn.innerText='جاري الحفظ...';btn.disabled=true;
-  await Promise.all(currentDrawResult.filter(p=>p[1]).map(pair=>addDoc(collection(db,'past_matchups'),{pair:pk(pair[0],pair[1])})));
-  alert('تم الحفظ ✅');btn.remove();
-  document.getElementById('drawBtn').innerText='بدء سحب الفرق 🔥';
-  selectedForDraw=[];renderDrawSelection();document.getElementById('drawResults').innerHTML='';
-};
 
+window.confirmDraw = async () => {
+  if (!currentDrawResult?.length) return;
+  if (!confirm('اعتماد الفرق وحفظها؟')) return;
+  const btn = document.getElementById('confirmDrawBtn'); btn.innerText = 'جاري الحفظ...'; btn.disabled = true;
+
+  // حفظ مع timestamp
+  await Promise.all(
+    currentDrawResult.filter(p => p[1]).map(pair =>
+      addDoc(collection(db, 'past_matchups'), {
+        pair: pk(pair[0], pair[1]),
+        timestamp: new Date()
+      })
+    )
+  );
+
+  alert('تم الحفظ ✅'); btn.remove();
+  document.getElementById('drawBtn').innerText = 'بدء سحب الفرق 🔥';
+  selectedForDraw = []; renderDrawSelection(); document.getElementById('drawResults').innerHTML = '';
+};
 // ===== ROUNDS =====
 window.saveRound=async()=>{
   const name=document.getElementById('roundName').value.trim();
