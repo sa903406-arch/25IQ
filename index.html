@@ -16,7 +16,7 @@
   --shadow:0 20px 60px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box;}
-body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);margin:0;padding-bottom:115px;user-select:none;overflow-x:hidden;}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);margin:0;padding-bottom:calc(115px + env(safe-area-inset-bottom));user-select:none;overflow-x:hidden;-webkit-tap-highlight-color:transparent;}
 body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 10%,rgba(26,58,138,.25),transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(124,92,252,.12),transparent 50%);pointer-events:none;z-index:0;}
 
 /* HEADER */
@@ -214,7 +214,7 @@ header p{margin:8px 0 0;color:rgba(255,255,255,.5);font-size:.85rem;}
 .cvc{background:var(--secondary);border:3px solid rgba(255,255,255,.08);color:#fff;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.75rem;}
 
 /* NAV */
-.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(13,24,48,.95);backdrop-filter:blur(20px);display:flex;justify-content:space-around;padding:14px 10px 30px;border-top:1px solid rgba(255,255,255,.06);z-index:1000;border-radius:30px 30px 0 0;}
+.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(13,24,48,.95);backdrop-filter:blur(20px);display:flex;justify-content:space-around;padding:14px 10px calc(20px + env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,.06);z-index:1000;border-radius:30px 30px 0 0;}
 .nb{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);font-weight:700;font-size:.7rem;cursor:pointer;flex:1;transition:.25s;position:relative;}
 .nb.active{color:var(--gold);}
 .nb.active::before{content:'';position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:30px;height:2px;background:var(--gold);border-radius:2px;}
@@ -228,7 +228,7 @@ header p{margin:8px 0 0;color:rgba(255,255,255,.5);font-size:.85rem;}
 .btn-a{background:linear-gradient(135deg,#6c42d4,#9b6ef3);color:#fff;}
 .btn-d{background:linear-gradient(135deg,#cc1f3a,#ff4d6d);color:#fff;}
 .btn-g{background:linear-gradient(135deg,#c9a227,#f5c518);color:#0f1f4b;font-weight:900;}
-input,select{width:100%;padding:14px 16px;border:1px solid rgba(255,255,255,.08);border-radius:16px;font-family:'Cairo';margin-bottom:12px;font-weight:600;font-size:.9rem;background:rgba(255,255,255,.04);color:var(--text);transition:.3s;box-sizing:border-box;}
+input,select{width:100%;padding:14px 16px;border:1px solid rgba(255,255,255,.08);border-radius:16px;font-family:'Cairo';margin-bottom:12px;font-weight:600;font-size:1rem;background:rgba(255,255,255,.04);color:var(--text);transition:.3s;box-sizing:border-box;}
 input:focus,select:focus{border-color:rgba(245,197,24,.4);outline:none;background:rgba(255,255,255,.07);}
 select option{background:#0d1830;}
 
@@ -236,7 +236,7 @@ select option{background:#0d1830;}
 .ri{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.03);border:1px solid var(--cbr);border-radius:14px;padding:12px 15px;margin-bottom:8px;}
 .rii{font-size:.82rem;color:var(--text);font-weight:700;}
 .ris{font-size:.63rem;color:var(--muted);margin-top:2px;}
-.delbtn{background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.2);color:var(--danger);border-radius:10px;padding:6px 12px;font-size:.75rem;cursor:pointer;font-family:'Cairo';font-weight:700;}
+.delbtn{background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.2);color:var(--danger);border-radius:10px;padding:9px 14px;min-height:38px;min-width:38px;font-size:.75rem;cursor:pointer;font-family:'Cairo';font-weight:700;}
 .sessb{background:rgba(0,214,143,.08);border:1px solid rgba(0,214,143,.2);border-radius:16px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;}
 .sdot{width:10px;height:10px;border-radius:50%;background:var(--success);animation:sdotA 1.5s ease-in-out infinite;flex-shrink:0;}
 @keyframes sdotA{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
@@ -461,6 +461,25 @@ let playersData={},playersDoc={},cachedStats={},cachedHistory={},allRecords=[];
 let selectedForDraw=[],currentDrawResult=[],isAdmin=false;
 let currentFilter='all',cachedRounds=[];
 let lastRankSnapshot={},currentProfileName=null;
+
+// Local, network-free avatar placeholder (SVG data URI) — replaces via.placeholder.com,
+// which is no longer reliable, so this removes broken-image icons and an extra network round-trip.
+const AVATAR_PH="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%231a3a8a'/><circle cx='50' cy='38' r='18' fill='%238899bb'/><path d='M20 90c0-22 14-34 30-34s30 12 30 34' fill='%238899bb'/></svg>";
+
+// Lightweight non-blocking toast (replaces window.alert for a smoother mobile feel)
+function showToast(msg){
+  let type='info';
+  if(msg.indexOf('✅')>-1||msg.indexOf('🆕')>-1)type='success';
+  if(msg.indexOf('⚠')>-1||msg.indexOf('❌')>-1)type='error';
+  const colors={info:'#f5c518',success:'#00d68f',error:'#ff4d6d'};
+  const t=document.createElement('div');
+  t.style.cssText=`position:fixed;bottom:calc(100px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(16px);background:#0d1830;border:1px solid ${colors[type]};color:${colors[type]};padding:12px 22px;border-radius:16px;font-weight:700;font-size:.82rem;z-index:10001;box-shadow:0 10px 30px rgba(0,0,0,.5);font-family:Cairo,sans-serif;opacity:0;transition:.25s ease;max-width:85vw;text-align:center;pointer-events:none;`;
+  t.textContent=msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>{t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';});
+  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(-50%) translateY(16px)';setTimeout(()=>t.remove(),250);},2600);
+}
+window.showToast=showToast;
 
 // ===== IMAGE LOADER (fixes CORS) =====
 // Loads images as base64 blobs to bypass CORS restrictions with html2canvas
@@ -746,12 +765,12 @@ window.showProfile=(name)=>{
   const formSum=hist.slice(-3).reduce((a,c)=>a+c.diff,0);
   let cum=0,cumPts=[];hist.forEach(m=>{cum+=m.diff;cumPts.push(cum);});
 
-  const imgSrc=playersData[name]||'';
+  const imgSrc=playersData[name]||AVATAR_PH;
 
   document.getElementById('profileContent').innerHTML=`
     <div>
       <div class="phdr">
-        <div class="paf"><img id="profileAvatar" src="${imgSrc}" onerror="this.src='https://via.placeholder.com/150'"></div>
+        <div class="paf"><img id="profileAvatar" src="${imgSrc}" onerror="this.src='${AVATAR_PH}'"></div>
         <h2 style="margin:0 0 5px;font-size:1.35rem;color:#fff;">${name}</h2>
         <span class="rnk ${rank.cls}">${rank.icon} ${rank.label}</span>
         ${streak.count>=2?`<div style="margin-top:10px;"><span class="sbg ${streak.type==='win'?'win':''}">${streak.type==='win'?'🔥':'💧'} ${streak.count} ${streak.type==='win'?'انتصارات':'خسارات'} متتالية</span></div>`:''}
@@ -911,6 +930,9 @@ async function buildAndShareLeaderboard(doShare){
   gl.addColorStop(0,'transparent');gl.addColorStop(.5,'rgba(245,197,24,.5)');gl.addColorStop(1,'transparent');
   ctx.fillStyle=gl;ctx.fillRect(0,105,W,1);
 
+  // Pre-fetch all avatars in parallel (was sequential awaits inside the loop)
+  await Promise.all(sorted.map(p=>getImg(playersData[p.name])));
+
   // Rows
   const medals=['🥇','🥈','🥉'];
   for(let i=0;i<sorted.length;i++){
@@ -992,7 +1014,7 @@ window.openTv=()=>{
     const s=calcStreak(p.name);
     return`<div class="tvr">
       <div class="tvrank">${medals[i]||i+1}</div>
-      <img class="tvimg" src="${playersData[p.name]||''}" onerror="this.src='https://via.placeholder.com/72'">
+      <img class="tvimg" src="${playersData[p.name]||AVATAR_PH}" onerror="this.src='${AVATAR_PH}'">
       <div class="tvname">${p.name} ${s.count>=2?(s.type==='win'?'🔥':'💧')+s.count:''}</div>
       <div class="tvsc">${p.diff}</div>
     </div>`;
@@ -1129,7 +1151,7 @@ function renderLeaderboard(){
       pod.innerHTML+=`<div class="podp" onclick="showProfile('${p.name}')">
         ${i===1?'<div class="pcrown">👑</div>':'<div style="height:30px;"></div>'}
         <div class="pavw"><div class="pglow ${glows[i]}"></div>
-        <img src="${playersData[p.name]||''}" class="pav ${rings[i]}" onerror="this.src='https://via.placeholder.com/68'"></div>
+        <img src="${playersData[p.name]||AVATAR_PH}" class="pav ${rings[i]}" onerror="this.src='${AVATAR_PH}'"></div>
         <div class="pbase ${cls[i]}">
           <div class="pscore">${p.diff}</div><div class="pname">${p.name}</div><div class="pnum">${nums[i]}</div>
         </div></div>`;
@@ -1146,7 +1168,7 @@ function renderLeaderboard(){
     const sH=streak.count>=2?`<span class="sbg ${streak.type==='win'?'win':''}">${streak.type==='win'?'🔥':'💧'} ${streak.count}</span>`:'';
     lst.innerHTML+=`<div class="lrow ${rc}" onclick="showProfile('${p.name}')">
       <div class="lrb ${rbc}">${rl}</div>
-      <img src="${playersData[p.name]||''}" class="limg" onerror="this.src='https://via.placeholder.com/44'">
+      <img src="${playersData[p.name]||AVATAR_PH}" class="limg" onerror="this.src='${AVATAR_PH}'">
       <div class="linf">
         <div class="lname">${p.name}</div>
         <div class="lsub">${p.total} مباراة ${sH} <span class="rnk ${rank.cls}" style="font-size:.52rem;padding:1px 6px;">${rank.icon}</span></div>
@@ -1167,7 +1189,7 @@ window.renderArchive=function(){
     cachedHistory[date].forEach(m=>{
       const iw=m.diff>0;
       h+=`<div class="mc" onclick="showProfile('${m.name}')">
-        <div class="mpi"><img src="${playersData[m.name]||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.08);" onerror="this.src='https://via.placeholder.com/36'">
+        <div class="mpi"><img src="${playersData[m.name]||AVATAR_PH}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.08);" onerror="this.src='${AVATAR_PH}'">
         <div><div style="font-size:.82rem;font-weight:bold;color:var(--text);">${m.name}</div>
         <div style="font-size:.58rem;color:var(--muted);">اضغط للتحليل</div></div></div>
         <div class="mst ${iw?'sw':'sl'}">${iw?'▲':'▼'} ${m.win} - ${m.loss}</div>
@@ -1194,7 +1216,7 @@ function renderHonorBadges(){
     h+=`<div class="hcv" onclick="showProfile('${b.p.name}')">
       <div class="bic">${b.i}</div><span class="hti">${b.t}</span><span class="hde">${b.d}</span>
       <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.06);padding-top:8px;">
-        <img src="${playersData[b.p.name]||''}" class="hpi" onerror="this.src='https://via.placeholder.com/36'">
+        <img src="${playersData[b.p.name]||AVATAR_PH}" class="hpi" onerror="this.src='${AVATAR_PH}'">
         <div style="font-size:.68rem;font-weight:bold;margin-top:4px;color:var(--text);">${b.p.name}</div>
       </div></div>`;
   });
@@ -1204,7 +1226,7 @@ function renderHonorBadges(){
 // ===== COMPARE + HEAD TO HEAD =====
 window.runComparison=()=>{
   const n1=document.getElementById('comp1').value,n2=document.getElementById('comp2').value;
-  if(n1===n2)return alert('اختر لاعبين مختلفين');
+  if(n1===n2)return showToast('اختر لاعبين مختلفين');
   const p1=cachedStats[n1]||{diff:0,win:0,loss:0,total:0};
   const p2=cachedStats[n2]||{diff:0,win:0,loss:0,total:0};
   const res=document.getElementById('compResult');
@@ -1217,9 +1239,9 @@ window.runComparison=()=>{
   </div>`;
   res.innerHTML=`
     <div class="cvh" style="margin-top:15px;">
-      <div class="cp"><img src="${playersData[n1]||''}"><br><b style="font-size:.8rem;color:var(--text);">${n1}</b></div>
+      <div class="cp"><img src="${playersData[n1]||AVATAR_PH}" onerror="this.src='${AVATAR_PH}'"><br><b style="font-size:.8rem;color:var(--text);">${n1}</b></div>
       <div class="cvc">VS</div>
-      <div class="cp"><img src="${playersData[n2]||''}"><br><b style="font-size:.8rem;color:var(--text);">${n2}</b></div>
+      <div class="cp"><img src="${playersData[n2]||AVATAR_PH}" onerror="this.src='${AVATAR_PH}'"><br><b style="font-size:.8rem;color:var(--text);">${n2}</b></div>
     </div>
     <div style="margin-top:12px;border:1px solid var(--cbr);border-radius:18px;overflow:hidden;">
       ${row('صافي النقاط',p1.diff,p2.diff,B(p1.diff,p2.diff),B(p2.diff,p1.diff))}
@@ -1241,7 +1263,7 @@ window.toggleDraw=(n)=>{const i=selectedForDraw.indexOf(n);if(i>-1)selectedForDr
 function pk(p1,p2){return[p1,p2].sort().join('-');}
 
 window.runSmartDraw = async () => {
-  if (selectedForDraw.length < 2) return alert('اختر لاعبين على الأقل!');
+  if (selectedForDraw.length < 2) return showToast('اختر لاعبين على الأقل!');
   let ob = document.getElementById('confirmDrawBtn'); if (ob) ob.remove();
   const btn = document.getElementById('drawBtn'); btn.innerText = 'جاري التحليل...'; btn.disabled = true;
 
@@ -1342,7 +1364,7 @@ window.confirmDraw = async () => {
     )
   );
 
-  alert('تم الحفظ ✅'); btn.remove();
+  showToast('تم الحفظ ✅'); btn.remove();
   document.getElementById('drawBtn').innerText = 'بدء سحب الفرق 🔥';
   selectedForDraw = []; renderDrawSelection(); document.getElementById('drawResults').innerHTML = '';
 };
@@ -1350,9 +1372,9 @@ window.confirmDraw = async () => {
 window.saveRound=async()=>{
   const name=document.getElementById('roundName').value.trim();
   const date=document.getElementById('roundDate').value;
-  if(!name||!date)return alert('أكمل البيانات');
+  if(!name||!date)return showToast('أكمل البيانات');
   await addDoc(collection(db,'rounds'),{name,startDate:date,active:true,createdAt:new Date().toISOString()});
-  closeModal('roundModal');document.getElementById('roundName').value='';alert('تم إنشاء الجولة ✅');
+  closeModal('roundModal');document.getElementById('roundName').value='';showToast('تم إنشاء الجولة ✅');
 };
 function renderRounds(){
   const c=document.getElementById('roundsList');if(!c)return;
@@ -1366,7 +1388,7 @@ function renderRounds(){
       </div>
     </div>`).join('');
 }
-window.closeRound=async(id)=>{if(!confirm('إنهاء الجولة؟'))return;await updateDoc(doc(db,'rounds',id),{active:false});alert('تم إنهاء الجولة ✅');};
+window.closeRound=async(id)=>{if(!confirm('إنهاء الجولة؟'))return;await updateDoc(doc(db,'rounds',id),{active:false});showToast('تم إنهاء الجولة ✅');};
 
 // ===== PLAYERS MANAGEMENT =====
 function renderPlayersList(){
@@ -1375,7 +1397,7 @@ function renderPlayersList(){
   if(!names.length){c.innerHTML=`<div style="color:var(--muted);font-size:.8rem;text-align:center;padding:15px;">لا يوجد لاعبون</div>`;return;}
   c.innerHTML=names.map(n=>`<div class="ri">
     <div style="display:flex;align-items:center;gap:10px;">
-      <img src="${playersData[n]||''}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.08);" onerror="this.src='https://via.placeholder.com/38'">
+      <img src="${playersData[n]||AVATAR_PH}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.08);" onerror="this.src='${AVATAR_PH}'">
       <div class="rii">${n}</div>
     </div>
     <button class="delbtn" onclick="deletePlayer('${n}')">🗑️</button>
@@ -1384,16 +1406,16 @@ function renderPlayersList(){
 window.saveNewPlayer=async()=>{
   const name=document.getElementById('npName').value.trim();
   const img=document.getElementById('npImg').value.trim();
-  if(!name)return alert('أدخل اسم اللاعب');
-  if(playersData[name]!==undefined)return alert('اللاعب موجود مسبقاً');
-  await addDoc(collection(db,'players'),{name,imageUrl:img||'https://via.placeholder.com/150'});
+  if(!name)return showToast('أدخل اسم اللاعب');
+  if(playersData[name]!==undefined)return showToast('اللاعب موجود مسبقاً');
+  await addDoc(collection(db,'players'),{name,imageUrl:img||''});
   document.getElementById('npName').value='';document.getElementById('npImg').value='';
-  closeModal('addPlayerModal');alert('تم إضافة اللاعب ✅');
+  closeModal('addPlayerModal');showToast('تم إضافة اللاعب ✅');
 };
 window.deletePlayer=async(name)=>{
   if(!confirm(`حذف اللاعب ${name}؟`))return;
   const id=playersDoc[name];if(!id)return;
-  await deleteDoc(doc(db,'players',id));alert('تم الحذف ✅');
+  await deleteDoc(doc(db,'players',id));showToast('تم الحذف ✅');
 };
 
 // ===== SESSION =====
@@ -1419,7 +1441,7 @@ function renderBulkGrid(){
 }
 window.saveBulk=async()=>{
   const date=document.getElementById('bulkDate').value;
-  if(!date)return alert('حدد التاريخ أولاً');
+  if(!date)return showToast('حدد التاريخ أولاً');
   const names=Object.keys(playersData).sort();
   let saved=0,winners=[];
   for(const n of names){
@@ -1428,8 +1450,8 @@ window.saveBulk=async()=>{
     const w=parseInt(wE?.value)||0,l=parseInt(lE?.value)||0;
     if(w>0||l>0){await addDoc(collection(db,'game_records'),{name:n,date,win:w,loss:l,diff:w-l,total:w+l});saved++;if(w>l)winners.push(n);}
   }
-  if(saved===0)return alert('لم تدخل أي بيانات');
-  if(winners.length===1)confetti(winners[0]);else alert(`تم حفظ ${saved} نتيجة ✅`);
+  if(saved===0)return showToast('لم تدخل أي بيانات');
+  if(winners.length===1)confetti(winners[0]);else showToast(`تم حفظ ${saved} نتيجة ✅`);
   renderBulkGrid();
 };
 
@@ -1439,10 +1461,10 @@ window.addRecord=async()=>{
   const date=document.getElementById('gameDate').value;
   const win=parseInt(document.getElementById('winInp').value)||0;
   const loss=parseInt(document.getElementById('lossInp').value)||0;
-  if(!name||!date)return alert('أكمل البيانات');
+  if(!name||!date)return showToast('أكمل البيانات');
   await addDoc(collection(db,'game_records'),{name,date,win,loss,diff:win-loss,total:win+loss});
   document.getElementById('winInp').value='';document.getElementById('lossInp').value='';
-  if(win>loss)confetti(name);else alert('تم الحفظ ✅');
+  if(win>loss)confetti(name);else showToast('تم الحفظ ✅');
 };
 
 // ===== DELETE =====
@@ -1455,14 +1477,14 @@ function renderRecentRecords(){
     <button class="delbtn" onclick="delRecord('${r.id}','${r.name}')">🗑️</button>
   </div>`).join('');
 }
-window.delRecord=async(id,name)=>{if(!confirm(`حذف نتيجة ${name}؟`))return;await deleteDoc(doc(db,'game_records',id));alert('تم الحذف ✅');};
+window.delRecord=async(id,name)=>{if(!confirm(`حذف نتيجة ${name}؟`))return;await deleteDoc(doc(db,'game_records',id));showToast('تم الحذف ✅');};
 
 // ===== SETTINGS =====
 window.resetMatchups=async()=>{
   if(confirm('مسح ذاكرة القرعة كاملاً؟')){
     const snap=await getDocs(collection(db,'past_matchups'));
     const batch=writeBatch(db);snap.forEach(d=>batch.delete(d.ref));
-    await batch.commit();alert('تم التصفير ✅');
+    await batch.commit();showToast('تم التصفير ✅');
   }
 };
 window.requestAdmin=(el)=>{
